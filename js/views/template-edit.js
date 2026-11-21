@@ -45,7 +45,8 @@ export function render(root, params, { isBack } = {}) {
   if (!(isBack && draft && draft.key === params.id)) {
     const t = existing
       ? JSON.parse(JSON.stringify(existing))
-      : { id: uid(), name: '', builtIn: false, order: Math.max(-1, ...db.state.templates.map((x) => x.order ?? 0)) + 1, note: '', items: [] };
+      : { id: uid(), name: '', builtIn: false, order: Math.max(-1, ...db.state.templates.map((x) => x.order ?? 0)) + 1, note: '', cardNote: '', items: [] };
+    t.cardNote = t.cardNote || '';
     t.items.forEach((it) => { it.note = it.note || ''; });
     draft = { key: params.id, t, original: JSON.stringify(t), showErrors: false };
   }
@@ -105,7 +106,11 @@ export function render(root, params, { isBack } = {}) {
           ${nameErr ? '<span class="field-error">Bitte gib einen Namen ein.</span>' : ''}
         </label>
         <label class="field">
-          <span class="field-label">Hinweis (optional)</span>
+          <span class="field-label">Notiz auf der Auswahlkarte (optional)</span>
+          <input class="input" name="cardNote" type="text" autocomplete="off" enterkeyhint="done" maxlength="80" value="${esc(t.cardNote)}" placeholder="z. B. Fokus: Beinpresse steigern">
+        </label>
+        <label class="field">
+          <span class="field-label">Hinweis beim Training (optional)</span>
           <textarea class="input" name="note" rows="2" placeholder="z. B. Aufwärmen: 5 min Crosstrainer">${esc(t.note || '')}</textarea>
         </label>
       </div>
@@ -127,8 +132,10 @@ export function render(root, params, { isBack } = {}) {
   const readTop = () => {
     const n = root.querySelector('input[name="name"]');
     const no = root.querySelector('textarea[name="note"]');
+    const cn = root.querySelector('input[name="cardNote"]');
     if (n) t.name = n.value;
     if (no) t.note = no.value;
+    if (cn) t.cardNote = cn.value;
   };
   const isDirty = () => { readTop(); return JSON.stringify(t) !== D.original; };
 
@@ -196,6 +203,7 @@ export function render(root, params, { isBack } = {}) {
     normalizeGroups(t.items);
     t.name = t.name.trim().replace(/\s+/g, ' ');
     t.note = (t.note || '').trim();
+    t.cardNote = (t.cardNote || '').trim().replace(/\s+/g, ' ');
     const before = db.template(t.id);
     await db.putTemplate(t);
     // Umbenannt: bisherige Workouts aus dieser Vorlage zeigen im Verlauf den neuen Namen
@@ -218,6 +226,7 @@ export function render(root, params, { isBack } = {}) {
       if (D.showErrors && n.value.trim()) { n.classList.remove('invalid'); const p = n.parentElement.querySelector('.field-error'); if (p) p.remove(); }
     }),
     on(root, 'input', 'textarea[name="note"]', (e, n) => { t.note = n.value; }),
+    on(root, 'input', 'input[name="cardNote"]', (e, n) => { t.cardNote = n.value; }),
     on(root, 'input', '[data-reps]', (e, inp) => {
       const clean = inp.value.replace(/\D/g, '').slice(0, 3);
       if (clean !== inp.value) inp.value = clean;

@@ -113,6 +113,8 @@ function registerServiceWorker() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update().catch(() => {});
     });
+    // Auch beim App-Start einmal nachsehen – iOS prueft beim Oeffnen nicht immer von selbst
+    reg.update().catch(() => {});
   }).catch((e) => console.warn('Service Worker nicht registriert', e));
 }
 

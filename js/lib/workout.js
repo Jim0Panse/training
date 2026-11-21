@@ -53,6 +53,28 @@ export function lastSessionOfTemplate(templateId) {
   return null;
 }
 
+// ---------- Ober- / Unterkoerper ----------
+const LOWER = new Set(['quadrizeps', 'beinbeuger', 'adduktoren', 'waden', 'gesaess']);
+const UPPER = new Set(['brust', 'schulter_vorne', 'schulter_seite', 'schulter_hinten', 'bizeps', 'trizeps', 'unterarme', 'trapez', 'latissimus']);
+export const KIND_LABEL = { upper: 'Oberkörper', lower: 'Unterkörper', full: 'Ganzkörper' };
+
+/** Art eines Workouts aus den Hauptmuskeln seiner Uebungen, gewichtet mit der Satzzahl.
+ *  Bauch und unterer Ruecken zaehlen nicht mit. -> 'upper' | 'lower' | 'full' | null */
+export function templateKind(t) {
+  let up = 0, low = 0;
+  for (const it of t.items || []) {
+    const ex = db.exercise(it.exerciseId);
+    if (!ex || !ex.primary.length) continue;
+    const w = (it.sets || 1) / ex.primary.length;
+    ex.primary.forEach((m) => { if (UPPER.has(m)) up += w; else if (LOWER.has(m)) low += w; });
+  }
+  const sum = up + low;
+  if (!sum) return null;
+  if (low / sum >= 0.7) return 'lower';
+  if (up / sum >= 0.7) return 'upper';
+  return 'full';
+}
+
 // ---------- Supersaetze ----------
 /** Pro Eintrag: null oder { letter, pos, size, first, last } (nur zusammenhaengende Gruppen ab 2) */
 export function groupInfo(items) {

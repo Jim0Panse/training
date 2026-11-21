@@ -408,7 +408,7 @@ select.input {
 .update-bar {
   position: fixed; left: 12px; right: 12px; z-index: 90;
   bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 10px);
-  max-width: 536px; margin: 0 auto;
+  width: auto; max-width: 536px; margin: 0 auto; /* width: auto, sonst ragt sie als .banner (100 %) rechts heraus */
 }
 body.no-tabbar .update-bar { bottom: calc(var(--safe-bottom) + 90px); }
 
@@ -921,3 +921,37 @@ a.sd-name:active { opacity: .6; }
 label.btn { cursor: pointer; }
 .info-note strong { color: var(--text); font-weight: 650; }
 .confirm p strong { color: var(--text); }
+
+/* ---------- Workout-Auswahl: Rahmenfarbe nach Art (Ober-/Unterkoerper) ---------- */
+/* Alle aus der Blau-Familie der Akzentfarbe (Himmelblau – Indigo – Violett), damit es einheitlich wirkt */
+html[data-theme="dark"] { --kind-upper: #6B7BFF; --kind-lower: #62B4F7; --kind-full: #A68AF9; }
+html[data-theme="light"] { --kind-upper: #4455F0; --kind-lower: #1F8AD2; --kind-full: #7A5AE0; }
+.tpl-pick.kind-upper { --kind: var(--kind-upper); }
+.tpl-pick.kind-lower { --kind: var(--kind-lower); }
+.tpl-pick.kind-full { --kind: var(--kind-full); }
+/* Ohne var(--shadow): im Dunkelmodus ist sie „none“ und wuerde die ganze Angabe ungueltig machen */
+.tpl-pick[class*="kind-"] { box-shadow: inset 0 0 0 1.5px var(--kind); }
+html[data-theme="light"] .tpl-pick[class*="kind-"] { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--kind); }
+/* Name und Art in einer Zeile; bei sehr langen Namen rutscht die Art darunter */
+.tpl-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 2px; }
+.tpl-head .card-title { min-width: 0; overflow-wrap: anywhere; }
+.kind-tag {
+  flex: none; white-space: nowrap;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2);
+}
+.kind-tag i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--kind); }
+.tpl-note {
+  margin-top: 12px; padding-top: 10px; box-shadow: inset 0 1px 0 var(--line);
+  font-size: 15px; line-height: 1.35; color: var(--text); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ---------- Uebungen: Filter-Symbol ---------- */
+.filter-btn { position: relative; }
+.filter-btn.on { color: var(--accent); }
+.filter-btn .badge {
+  position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; background: var(--accent); color: var(--on-accent);
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.link-btn.inline { min-height: 0; margin-left: 8px; font-size: 13px; vertical-align: baseline; }

@@ -1,5 +1,5 @@
 // Startseite: Hinweisleisten (laufendes Workout, Backup-Erinnerung), Kacheln Koerpergewicht
-// und Diese Woche, Muskel-Mensch (Woche | Erholung), „Workout starten“.
+// und Diese Woche, „Workout starten“ (ohne Scrollen erreichbar), Muskel-Mensch (Woche | Erholung).
 
 import { pageHead } from '../components/header.js';
 import { bodyCardInner, getBodyMode, setBodyMode } from '../components/body-card.js';
@@ -87,15 +87,18 @@ export function render(root) {
     <div class="stack">
       <div class="contents" id="home-banners">${bannersHTML()}</div>
       <div class="grid-2" id="home-tiles">${tilesHTML()}</div>
-      <section class="card body-card" id="body-card">${bodyCardInner(mode)}</section>
       <div class="contents" id="home-start">${startHTML(active)}</div>
+      <section class="card body-card" id="body-card">${bodyCardInner(mode)}</section>
+      <div class="contents" id="home-new">${newHTML(active)}</div>
     </div>`;
 
   const card = root.querySelector('#body-card');
   const redraw = () => {
+    const a = db.activeSession();
     root.querySelector('#home-banners').innerHTML = bannersHTML();
     root.querySelector('#home-tiles').innerHTML = tilesHTML();
-    root.querySelector('#home-start').innerHTML = startHTML(db.activeSession());
+    root.querySelector('#home-start').innerHTML = startHTML(a);
+    root.querySelector('#home-new').innerHTML = newHTML(a);
     card.innerHTML = bodyCardInner(mode);
   };
 
@@ -182,9 +185,11 @@ export function render(root) {
   };
 }
 
+// Laeuft ein Workout, uebernimmt die Leiste oben das „Fortsetzen“.
 function startHTML(active) {
-  return active
-    ? `<a class="btn" href="#/workout">${icon('play')}Workout fortsetzen</a>`
-    : `<a class="btn" href="#/workout-auswahl">${icon('play')}Workout starten</a>
-       <a class="btn btn-text" href="#/vorlage/neu">${icon('plus')}Neues Workout</a>`;
+  return active ? '' : `<a class="btn" href="#/workout-auswahl">${icon('play')}Workout starten</a>`;
+}
+
+function newHTML(active) {
+  return active ? '' : `<a class="btn btn-text" href="#/vorlage/neu">${icon('plus')}Neues Workout</a>`;
 }

@@ -1,39 +1,56 @@
 // Workout auswaehlen: Vorlagen als Karten (Tipp startet sofort), „…“/langes Druecken -> Menue.
+// Rahmenfarbe nach Art (Ober-/Unterkoerper, automatisch aus den Uebungen), darunter eine kurze Notiz.
 
 import * as db from '../db.js';
 import { topbar } from '../components/header.js';
-import { actionSheet, confirmSheet } from '../components/sheet.js';
-import { MUSCLE_SHORT } from '../data/muscles.js';
-import { startWorkout, lastSessionOfTemplate } from '../lib/workout.js';
+import { actionSheet, confirmSheet, openSheet } from '../components/sheet.js';
+import { startWorkout, lastSessionOfTemplate, templateKind, KIND_LABEL } from '../lib/workout.js';
 import { fmtRelDay, fmtClock } from '../lib/format.js';
 import { on, esc, uid, toast } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { navigate } from '../router.js';
 
-function muscleChips(t) {
-  const names = [];
-  t.items.forEach((it) => {
-    const ex = db.exercise(it.exerciseId);
-    if (!ex) return;
-    ex.primary.forEach((m) => { const n = MUSCLE_SHORT[m]; if (n && !names.includes(n)) names.push(n); });
-  });
-  const shown = names.slice(0, 5);
-  return shown.map((n) => `<span class="chip-sm">${esc(n)}</span>`).join('') + (names.length > 5 ? `<span class="chip-sm">+${names.length - 5}</span>` : '');
-}
-
 function card(t) {
   const last = lastSessionOfTemplate(t.id);
   const n = t.items.length;
-  return `<div class="card card-tap tpl-pick" data-start="${esc(t.id)}" role="button" tabindex="0">
+  const kind = templateKind(t);
+  return `<div class="card card-tap tpl-pick ${kind ? `kind-${kind}` : ''}" data-start="${esc(t.id)}" role="button" tabindex="0">
     <div class="row-flex">
       <div class="grow">
-        <div class="card-title">${esc(t.name)}</div>
+        <div class="tpl-head">
+          <span class="card-title">${esc(t.name)}</span>
+          ${kind ? `<span class="kind-tag"><i></i>${KIND_LABEL[kind]}</span>` : ''}
+        </div>
         <div class="card-sub">${n} ${n === 1 ? 'Übung' : 'Übungen'} · ${last ? `zuletzt ${fmtRelDay(new Date(last.startedAt))}` : 'noch nie trainiert'}</div>
       </div>
       <button class="icon-btn plain" data-menu="${esc(t.id)}" aria-label="Optionen für ${esc(t.name)}">${icon('more')}</button>
     </div>
-    ${n ? `<div class="chips mt-12">${muscleChips(t)}</div>` : ''}
+    ${t.cardNote ? `<p class="tpl-note">${esc(t.cardNote)}</p>` : ''}
   </div>`;
+}
+
+/** Kurze Notiz fuer die Karte bearbeiten -> neuer Text ('' = entfernen) oder null (abgebrochen) */
+function noteSheet(t) {
+  return new Promise((resolve) => {
+    const s = openSheet({
+      title: 'Notiz',
+      body: `<input class="input" id="card-note" type="text" maxlength="80" autocomplete="off" enterkeyhint="done" placeholder="z. B. Fokus: Beinpresse steigern" value="${esc(t.cardNote || '')}" aria-label="Notiz zu ${esc(t.name)}">
+        <p class="field-hint mt-8">Steht klein auf der Karte von „${esc(t.name)}“. Leer lassen zum Entfernen.</p>
+        <div class="btn-row mt-16">
+          <button class="btn btn-secondary" type="button" data-r="cancel">Abbrechen</button>
+          <button class="btn" type="button" data-r="save">Speichern</button>
+        </div>`,
+      onClose: (r) => resolve(typeof r === 'string' ? r : null),
+    });
+    const inp = s.body.querySelector('#card-note');
+    const done = () => s.close(inp.value.trim().replace(/\s+/g, ' '));
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(); } });
+    s.body.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-r]');
+      if (!b) return;
+      if (b.dataset.r === 'save') done(); else s.close(null);
+    });
+  });
 }
 
 export function render(root) {
@@ -78,11 +95,19 @@ export function render(root) {
     const v = await actionSheet({
       title: t.name,
       actions: [
+        { label: t.cardNote ? 'Notiz ändern' : 'Notiz hinzufügen', value: 'note', icon: 'note' },
         { label: 'Bearbeiten', value: 'edit', icon: 'pencil' },
         { label: 'Duplizieren', value: 'dup', icon: 'layers' },
         { label: 'Löschen', value: 'del', icon: 'trash', danger: true },
       ],
     });
+    if (v === 'note') {
+      const txt = await noteSheet(t);
+      if (txt != null && txt !== (t.cardNote || '')) {
+        await db.putTemplate({ ...db.template(t.id), cardNote: txt });
+        toast(txt ? 'Notiz gespeichert' : 'Notiz entfernt');
+      }
+    }
     if (v === 'edit') navigate(`#/vorlage/${t.id}`);
     if (v === 'dup') {
       const order = Math.max(-1, ...db.state.templates.map((x) => x.order ?? 0)) + 1;

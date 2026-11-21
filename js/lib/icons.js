@@ -35,6 +35,7 @@ const P = {
   trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/>',
   pencil: '<path d="M4.5 19.5h4l10-10-4-4-10 10z M12.5 7.5l4 4"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.3"/><path d="M15.5 15.5l4.5 4.5"/>',
+  sliders: '<path d="M4 8h8.5M16.5 8H20M4 16h3.5M11.5 16H20"/><circle cx="14.5" cy="8" r="2"/><circle cx="9.5" cy="16" r="2"/>',
   trophy: '<path d="M8 4h8v5.5a4 4 0 0 1-8 0z"/><path d="M8 6.2H5.2v1.3A3.2 3.2 0 0 0 8 10.7M16 6.2h2.8v1.3a3.2 3.2 0 0 1-2.8 3.2M12 13.5v3.5M8.5 20h7M10 17h4v3h-4z"/>',
   info: '<circle cx="12" cy="12" r="8.8"/><path d="M12 11v5.5M12 7.7v.1"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
