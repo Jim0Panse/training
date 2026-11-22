@@ -67,6 +67,7 @@ const P = {
   volume: '<path d="M4.5 9.5h3.5L12.5 5.5v13L8 14.5H4.5z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>',
   shortcut: '<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M9 9l6 6M15 9v6H9"/>',
   expand: '<path d="M4.5 9.5v-5h5M19.5 9.5v-5h-5M4.5 14.5v5h5M19.5 14.5v5h-5"/>',
+  balance: '<path d="M12 4.5v15M8 19.5h8M4.5 7.5h15"/><path d="M4.5 7.5L2.5 13a2 2 0 0 0 4 0zM19.5 7.5L17.5 13a2 2 0 0 0 4 0zM2.5 13h4M17.5 13h4"/>',
 };
 
 /** Liefert ein Inline-SVG-Icon als HTML-String. */

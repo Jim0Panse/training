@@ -16,6 +16,7 @@ import * as summary from './views/summary.js';
 import * as historyView from './views/history.js';
 import * as sessionDetail from './views/session-detail.js';
 import * as stats from './views/stats.js';
+import * as balance from './views/balance.js';
 import * as muscles from './views/muscles.js';
 import * as muscleDetail from './views/muscle-detail.js';
 import * as exercises from './views/exercises.js';
@@ -37,6 +38,7 @@ defineRoutes([
   { pattern: '/verlauf/:id', view: sessionDetail, tab: 'verlauf' },
   { pattern: '/statistik', view: stats, tab: 'statistik' },
   { pattern: '/statistik/:period', view: stats, tab: 'statistik' },
+  { pattern: '/muskelbalance', view: balance, tab: 'statistik' },
   { pattern: '/uebungen', view: exercises, tab: 'uebungen' },
   { pattern: '/neue-uebung', view: exerciseEdit, tabbar: false },
   { pattern: '/uebung/:id', view: exerciseDetail, tab: 'uebungen' },

@@ -212,6 +212,12 @@ export function legendRecovery() {
     ${items.map(([c, t]) => `<span class="pill"><i class="sw ${c}"></i>${t}</span>`).join('')}
   </div>`;
 }
+export function legendBalance() {
+  const items = [['b-low', 'Vernachlässigt'], ['b-mid', 'Ausbaufähig'], ['b-ok', 'Im Ziel'], ['b-high', 'Sehr hoch']];
+  return `<div class="legend" aria-label="Legende: Muskelbalance">
+    ${items.map(([c, t]) => `<span class="pill"><i class="sw ${c}"></i>${t}</span>`).join('')}
+  </div>`;
+}
 export function legendSelect() {
   return `<div class="legend"><span class="pill"><i class="sw pri"></i>Hauptmuskel</span><span class="pill"><i class="sw sec"></i>Nebenmuskel</span></div>`;
 }

@@ -5,18 +5,22 @@ import { MUSCLES } from '../data/muscles.js';
 import { startOfWeek, addDays } from './format.js';
 import { clamp } from './dom.js';
 
-const COUNTING = new Set(['kraft', 'plyometrie']);
 const H = 3600e3;
 
 /** Nur erledigte Arbeitssaetze zaehlen (keine Aufwaermsaetze). */
 export const doneWorkSets = (item) => item.sets.filter((s) => s.type !== 'warmup' && s.done);
 
-/** Effektive Saetze pro Muskel in einer Session: Hauptmuskel +1, Nebenmuskel +0,5 */
-export function sessionMuscleSets(session) {
+/**
+ * Effektive Saetze pro Muskel in einer Session: Hauptmuskel +1, Nebenmuskel +0,5.
+ * plyo: false -> nur Kraftuebungen. So bleiben die Werte mit den Richtwerten aus Studien
+ * vergleichbar (die beziehen sich auf Kraftsaetze, nicht auf Spruenge). Fuer die Erholung
+ * zaehlen Sprung- und Explosivsaetze dagegen mit.
+ */
+export function sessionMuscleSets(session, { plyo = true } = {}) {
   const out = {};
   for (const item of session.items) {
     const ex = db.exercise(item.exerciseId);
-    if (!ex || !COUNTING.has(ex.category)) continue;
+    if (!ex || !(ex.category === 'kraft' || (plyo && ex.category === 'plyometrie'))) continue;
     const n = doneWorkSets(item).length;
     if (!n) continue;
     ex.primary.forEach((m) => { out[m] = (out[m] || 0) + n; });
@@ -33,26 +37,26 @@ function lastDoneAt(s) {
 /** Zeitpunkt, ab dem die Erholung einer Session zaehlt */
 export function sessionTime(s) { return new Date(s.endedAt || lastDoneAt(s) || s.startedAt); }
 
-/** Saetze pro Muskel in der Woche (Mo 00:00 – So 23:59), die das Datum enthaelt */
-export function weekSets(date = new Date()) {
+/** Saetze pro Muskel in der Woche (Mo 00:00 – So 23:59), die das Datum enthaelt. opts wie sessionMuscleSets. */
+export function weekSets(date = new Date(), opts) {
   const from = startOfWeek(date).getTime();
   const to = addDays(new Date(from), 7).getTime();
   const out = {};
   for (const s of db.state.sessions) {
     const t = new Date(s.startedAt).getTime();
     if (t < from || t >= to) continue;
-    const m = sessionMuscleSets(s);
+    const m = sessionMuscleSets(s, opts);
     for (const k in m) out[k] = (out[k] || 0) + m[k];
   }
   return out;
 }
 
 /** Effektive Saetze pro Woche fuer einen Muskel, letzte n Wochen (aelteste zuerst) */
-export function weeklySeries(muscleId, n = 12, now = new Date()) {
+export function weeklySeries(muscleId, n = 12, now = new Date(), opts) {
   const cur = startOfWeek(now);
   const weeks = [];
   for (let i = n - 1; i >= 0; i--) weeks.push(addDays(cur, -7 * i));
-  return weeks.map((w) => ({ week: w, sets: weekSets(w)[muscleId] || 0 }));
+  return weeks.map((w) => ({ week: w, sets: weekSets(w, opts)[muscleId] || 0 }));
 }
 
 /**

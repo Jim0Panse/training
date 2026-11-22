@@ -59,7 +59,7 @@ export function render(root, params, { isBack } = {}) {
       ${mode === 'recovery' ? `<div class="info-note mt-12">${icon('info')}<span>Richtwert auf Basis von Trainingsvolumen und typischer Erholungszeit der Muskelgruppe – dein Körpergefühl geht vor.</span></div>` : ''}
       <h2 class="section-title">${mode === 'week' ? 'Effektive Sätze' : 'Status'}</h2>
       <div class="list">${rows.join('')}</div>
-      ${mode === 'week' ? '<p class="small muted mt-12 center">Hauptmuskel zählt 1 Satz, Nebenmuskel 0,5. Aufwärmsätze zählen nicht.</p>' : ''}`;
+      ${mode === 'week' ? '<p class="small muted mt-12 center">Hauptmuskel zählt 1 Satz, Nebenmuskel 0,5 – inklusive Sprung- und Explosivübungen, ohne Aufwärmsätze.</p>' : ''}`;
   };
 
   draw();

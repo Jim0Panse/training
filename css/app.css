@@ -1012,3 +1012,113 @@ html[data-theme="light"] .tpl-pick[class*="kind-"] { box-shadow: var(--shadow), 
   font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
 }
 .link-btn.inline { min-height: 0; margin-left: 8px; font-size: 13px; vertical-align: baseline; }
+
+/* ---------- Muskelbalance ---------- */
+/* Status: Rot vernachlaessigt, Orange ausbaufaehig, Gruen im Ziel, Akzentblau sehr hoch.
+   Immer mit Text daneben (Legende, Liste) – nie Farbe allein. */
+html[data-theme] {
+  --b-low: var(--bad);
+  --b-mid: var(--warn);
+  --b-ok: color-mix(in srgb, var(--good) 80%, var(--muscle-0));
+  --b-high: var(--accent);
+}
+/* Hell: das dunkle Warn-Orange wirkt auf der schattierten Figur braun – dort ein helleres Orange */
+html[data-theme="light"] .bal-fig { --b-mid: #E9A23B; }
+.b-low, .p-strong { --b: var(--b-low); }
+.b-mid, .p-mild { --b: var(--b-mid); }
+.b-ok, .p-ok { --b: var(--b-ok); }
+.b-high { --b: var(--b-high); }
+.p-none { --b: var(--muscle-0); }
+.body-fig .m.b-low, .body-fig .m.b-mid, .body-fig .m.b-ok, .body-fig .m.b-high { fill: var(--b); }
+.legend .sw[class*="b-"] { background: var(--b); box-shadow: none; }
+.bdot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--b, var(--muscle-0)); }
+
+/* Kurzansicht in der Statistik */
+.bal-card { display: block; padding: 14px; }
+.bal-head { display: flex; align-items: center; gap: 10px; }
+.bal-head .icon-disc { width: 34px; height: 34px; }
+.bal-head .icon-disc svg { width: 19px; height: 19px; }
+.bal-head .card-title, .bal-head .card-sub { display: block; }
+.bal-head .card-title { font-size: 16px; line-height: 1.2; }
+.bal-head .card-sub { margin-top: 1px; font-size: 13px; }
+.bal-head .chev, .bal-act .chev, .bal-info-head .chev { width: 18px; height: 18px; flex: none; color: var(--text-2); }
+.bal-strip { display: flex; gap: 3px; margin-top: 14px; }
+.bal-strip i { flex: 1; height: 8px; border-radius: 3px; background: var(--b); }
+.bal-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 9px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.bal-counts span { display: inline-flex; align-items: center; gap: 5px; }
+.bal-counts .bdot { width: 7px; height: 7px; }
+.bal-find { display: grid; gap: 9px; margin: 12px 0 0; padding: 11px 0 0; list-style: none; box-shadow: inset 0 1px 0 var(--line); }
+.bal-find li { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; }
+.bal-find .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bal-find b { flex: none; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bal-wait { margin-top: 10px; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+
+/* Detailseite */
+.bal-fig .body-fig { max-height: 330px; }
+.bal-empty svg { width: 34px; height: 34px; margin: 0 auto 10px; color: var(--accent); }
+.bal-empty-sub { display: block; margin-top: 8px; font-size: 13px; }
+
+.bal-sugg { padding: 14px; }
+.bal-sugg-head { display: flex; align-items: flex-start; gap: 10px; }
+.bal-sugg-head > .bdot { margin-top: 6px; }
+.bal-sugg-head .card-title { display: block; font-size: 16px; line-height: 1.25; }
+.bal-sugg-why { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--text-2); }
+.bal-sugg-why .trend, .bal-sub .trend { font-size: inherit; }
+.bal-sugg-num { flex: none; text-align: right; }
+.bal-sugg-num b { display: block; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bal-sugg-num small { display: block; margin-top: 1px; font-size: 11px; color: var(--text-2); }
+.bal-sugg-foot { margin-top: 10px; font-size: 12px; line-height: 1.4; color: var(--text-2); }
+.bal-acts { display: grid; gap: 6px; margin-top: 12px; }
+.bal-act {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 7px 10px 7px 8px;
+  border-radius: 14px; background: var(--card-2); text-align: left;
+  transition: transform var(--t) var(--ease);
+}
+button.bal-act:active { transform: scale(.985); }
+.bal-act-ic { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+.bal-act-ic svg { width: 16px; height: 16px; }
+.bal-act-ex { display: block; font-size: 15px; font-weight: 650; line-height: 1.25; }
+.bal-act-tpl { display: block; margin-top: 1px; font-size: 12px; color: var(--text-2); }
+.bal-act-sets { flex: none; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bal-act .chev { width: 16px; height: 16px; margin-left: -4px; }
+
+.bal-pairs { padding: 2px 16px; }
+.bal-pair { padding: 14px 0; }
+.bal-pair + .bal-pair { box-shadow: inset 0 1px 0 var(--line); }
+.bal-pair-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.bal-pair-name { font-size: 15px; font-weight: 650; }
+.bal-pair-ratio { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bal-split { display: flex; gap: 2px; height: 10px; margin-top: 9px; }
+.bal-split i { flex: 0 1 0; min-width: 0; border-radius: 3px; }
+.bal-split .a, .bkey.a { background: var(--kind-upper); }
+.bal-split .b, .bkey.b { background: var(--kind-lower); }
+.bal-split .none { flex-grow: 1; background: var(--card-2); }
+.bal-pair-vals { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bal-pair-vals span { display: inline-flex; align-items: center; gap: 5px; }
+.bkey { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 2px; }
+.bal-pair-verdict { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.bal-pair-verdict .bdot { margin-top: 5px; }
+.bal-pair-verdict strong { color: var(--text); font-weight: 650; }
+.bal-pair-note { margin-top: 6px; padding-left: 17px; font-size: 12px; line-height: 1.4; color: var(--text-2); }
+
+.bal-row { padding-top: 10px; padding-bottom: 10px; }
+.bal-row-top { display: flex; align-items: baseline; gap: 8px; }
+.bal-row-top .row-title { min-width: 0; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.bal-val { flex: none; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bal-val b { font-size: 15px; font-weight: 700; color: var(--text); }
+.bal-bar { position: relative; display: block; height: 6px; margin-top: 7px; border-radius: 3px; background: var(--card-2); }
+.bal-bar i { position: absolute; top: 0; bottom: 0; }
+.bal-bar .band { border-radius: 3px; background: color-mix(in srgb, var(--good) 24%, transparent); }
+.bal-bar .fill { left: 0; border-radius: 3px; background: var(--b); }
+.bal-bar .min { top: -2px; bottom: -2px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text-2); opacity: .55; }
+.bal-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-top: 6px; font-size: 12px; color: var(--text-2); }
+.bal-sub .sep { opacity: .6; }
+.bal-st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--text); }
+.bal-st .bdot { width: 8px; height: 8px; }
+
+.bal-info { padding: 0; overflow: hidden; }
+.bal-info-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 16px; font-size: 15px; font-weight: 650; text-align: left; }
+.bal-info-head > svg:first-child { width: 18px; height: 18px; flex: none; color: var(--accent); }
+.bal-info-body { display: grid; gap: 10px; padding: 0 16px 16px; font-size: 13px; line-height: 1.5; color: var(--text-2); -webkit-user-select: text; user-select: text; }
+.bal-info-body strong { font-weight: 650; color: var(--text); }
+.bal-src { padding-top: 10px; font-size: 12px; box-shadow: inset 0 1px 0 var(--line); }

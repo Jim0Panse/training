@@ -1,7 +1,8 @@
 // Statistik: Zeitraum Woche | Monat | Jahr | Alle.
 // Kacheln (Workouts, Trainingszeit, Volumen, Arbeitssaetze) mit Vergleich zum gleichen Abschnitt
-// des vorherigen Zeitraums, Volumen-Balken, Muskel-Mensch (Saetze | Erholung) und Uebungsliste
-// mit Mini-Trendlinie. Alles wird live aus den Sessions berechnet.
+// des vorherigen Zeitraums, Volumen-Balken, Muskel-Mensch (Saetze | Erholung), Kurzansicht der
+// Muskelbalance (eigener Zeitraum: letzte 4 Wochen) und Uebungsliste mit Mini-Trendlinie.
+// Alles wird live aus den Sessions berechnet.
 
 import * as db from '../db.js';
 import { pageHead } from '../components/header.js';
@@ -10,6 +11,7 @@ import { bodyMapHTML, weekClasses, legendWeek, legendRecovery } from '../compone
 import { getBodyMode, setBodyMode } from '../components/body-card.js';
 import { weekSets, sessionMuscleSets, recovery, recoveryClasses, doneWorkSets } from '../lib/muscle-load.js';
 import { sessionVolume, sessionWorkSets, sessionDuration, exerciseSeries, e1rmTrend, isWeighted } from '../lib/stats.js';
+import { analyzeBalance, topFindings, ratioText, waitText, byNeed, STATUS_KEYS, STATUS_COUNT_LABEL } from '../lib/balance.js';
 import {
   fmtNum, fmtInt, fmtVolume, fmtDuration, fmtPct, fmtDayMonth, fmtDayMonthShort, fmtMonthShort, fmtMonthLong,
   fmtMonthYear, isoWeek, startOfWeek, startOfMonth, startOfYear, addDays, addMonths,
@@ -247,6 +249,38 @@ function bodyHTML(p, r, now, mode) {
     <p class="st-hint">Muskel antippen für Details</p>`;
 }
 
+// ---------- Muskelbalance (Kurzansicht, Details unter #/muskelbalance) ----------
+function findingHTML(f) {
+  if (f.type === 'muscle') {
+    const m = f.m;
+    return `<li><i class="bdot b-${m.status}"></i><span class="grow">${esc(m.name)}</span><b>${esc(fmtNum(m.perWeek, 1))} von ${m.target.from}</b></li>`;
+  }
+  const p = f.p;
+  return `<li><i class="bdot p-${p.level}"></i><span class="grow">${esc(p.a)} : ${esc(p.b)}</span><b>${esc(ratioText(p))}</b></li>`;
+}
+
+function balanceHTML(now) {
+  const res = analyzeBalance({ weeks: 4, now, trends: false });
+  const head = (sub) => `<div class="bal-head">
+      <span class="icon-disc">${icon('balance')}</span>
+      <span class="grow"><span class="card-title">Muskelbalance</span><span class="card-sub">${esc(sub)}</span></span>
+      ${icon('chevronRight', 'chev')}
+    </div>`;
+  if (!res.enough) {
+    return `<a class="card card-tap bal-card" href="#/muskelbalance">${head('Welche Muskeln kommen zu kurz?')}<p class="bal-wait">${esc(waitText(res))}</p></a>`;
+  }
+  const ms = res.muscles.slice().sort(byNeed);
+  const count = {};
+  ms.forEach((m) => { count[m.status] = (count[m.status] || 0) + 1; });
+  const finds = topFindings(res, 3);
+  return `<a class="card card-tap bal-card" href="#/muskelbalance">
+    ${head('Letzte 4 Wochen · Ø Sätze pro Woche')}
+    <div class="bal-strip" aria-hidden="true">${ms.map((m) => `<i class="b-${m.status}"></i>`).join('')}</div>
+    <div class="bal-counts">${STATUS_KEYS.filter((k) => count[k]).map((k) => `<span><i class="bdot b-${k}"></i>${count[k]} ${STATUS_COUNT_LABEL[k]}</span>`).join('')}</div>
+    ${finds.length ? `<ul class="bal-find">${finds.map(findingHTML).join('')}</ul>` : '<p class="bal-wait">Gut verteilt – kein Muskel kommt zu kurz.</p>'}
+  </a>`;
+}
+
 // ---------- Uebungen ----------
 function exerciseRows(r) {
   const t0 = r.from.getTime();
@@ -332,6 +366,7 @@ export function render(root, params = {}, { isBack } = {}) {
           <div class="mt-12" id="st-chart"></div>
         </section>
         <section class="card body-card st-body" id="st-body">${bodyHTML(period, r, now, mode)}</section>
+        ${balanceHTML(now)}
       </div>
       <div id="st-ex">${exercisesHTML(r, now)}</div>`;
     const hasVolume = cd.bars.some((b) => b.value > 0);

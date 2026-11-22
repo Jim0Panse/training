@@ -1,11 +1,13 @@
 // Muskel-Detail: Saetze diese Woche + Erholung, effektive Saetze pro Woche (12 Wochen, Zielbereich
-// 10–20), Uebungen fuer diesen Muskel, e1RM-Verlauf der wichtigsten Hauptuebung, letzte Einheiten.
+// des Muskels wie in der Muskelbalance), Uebungen fuer diesen Muskel, e1RM-Verlauf der wichtigsten
+// Hauptuebung, letzte Einheiten. Saetze hier nur aus Kraftuebungen (vergleichbar mit dem Richtwert),
+// Sprung-/Explosivsaetze werden daneben genannt.
 
 import * as db from '../db.js';
 import { topbar } from '../components/header.js';
 import { barChart, lineChart } from '../components/chart.js';
 import { bodyMapHTML } from '../components/body-map.js';
-import { MUSCLE } from '../data/muscles.js';
+import { MUSCLE, muscleTarget } from '../data/muscles.js';
 import { weekSets, weeklySeries, recovery, RECOVERY_LABEL, doneWorkSets } from '../lib/muscle-load.js';
 import { exerciseSeries, exerciseRecords, e1rmTrend, setLabel, setE1rm, fmtSec, isWeighted } from '../lib/stats.js';
 import { fmtNum, fmtKg, fmtInt, fmtPct, fmtHours, fmtDM, isoWeek, addDays, startOfWeek, fmtDayMonthShort, fmtDateShort } from '../lib/format.js';
@@ -14,7 +16,7 @@ import { icon } from '../lib/icons.js';
 import { navigate } from '../router.js';
 
 const chosen = new Map(); // Muskel -> gewaehlte Uebung fuer den e1RM-Graphen
-const TARGET = [10, 20];
+const STRENGTH = { plyo: false };
 
 const dateLabel = (d) => (d.getFullYear() === new Date().getFullYear() ? fmtDateShort(d) : `${fmtDateShort(d)} ${d.getFullYear()}`);
 
@@ -53,12 +55,14 @@ export function render(root, { id }) {
     return;
   }
   let bars = null, line = null, showInfo = false, showMore = false;
+  const T = muscleTarget(id);
 
   const draw = () => {
     if (bars) { bars.destroy(); bars = null; }
     if (line) { line.destroy(); line = null; }
     const now = new Date();
-    const week = weekSets(now)[id] || 0;
+    const week = weekSets(now, STRENGTH)[id] || 0;
+    const plyoWeek = Math.max(0, (weekSets(now)[id] || 0) - week);
     const rec = recovery(now)[id];
 
     // Uebungen fuer diesen Muskel
@@ -123,7 +127,7 @@ export function render(root, { id }) {
         <div class="card stat-tile">
           <div class="card-sub">Diese Woche</div>
           <div class="big-md">${esc(fmtNum(week, 1))}<span class="unit">${week === 1 ? 'Satz' : 'Sätze'}</span></div>
-          <div class="tile-sub">KW ${isoWeek(now).week} · Ziel ${TARGET[0]}–${TARGET[1]}</div>
+          <div class="tile-sub">KW ${isoWeek(now).week} · Ziel ${T.from}–${T.to}${plyoWeek > 0 ? `<br>zzgl. ${esc(fmtNum(plyoWeek, 1))} explosiv` : ''}</div>
         </div>
         <div class="card stat-tile">
           <div class="card-sub md-rec-label">Erholung <button class="icon-btn plain sm md-info" type="button" data-info aria-label="Wie wird das berechnet?">${icon('info')}</button></div>
@@ -137,7 +141,7 @@ export function render(root, { id }) {
       <section class="card">
         <div class="card-sub">Effektive Sätze der letzten 12 Wochen</div>
         <div id="md-bars" class="mt-12"></div>
-        <p class="chart-foot">Hauptmuskel zählt 1 Satz, Nebenmuskel 0,5 · grauer Bereich: Ziel ${TARGET[0]}–${TARGET[1]} Sätze</p>
+        <p class="chart-foot">Nur Kraftübungen · Hauptmuskel zählt 1 Satz, Nebenmuskel 0,5 · grauer Bereich: Ziel ${T.from}–${T.to} Sätze</p>
       </section>
 
       <h2 class="section-title">Übungen <span class="count">${trained.length || ''}</span></h2>
@@ -172,7 +176,7 @@ export function render(root, { id }) {
         </div>` : '<div class="card empty small">Noch keine Einheiten für diesen Muskel.</div>'}`;
 
     // Balken: effektive Saetze pro Woche
-    const ws = weeklySeries(id, 12, now);
+    const ws = weeklySeries(id, 12, now, STRENGTH);
     bars = barChart(root.querySelector('#md-bars'), {
       bars: ws.map((w, i) => ({
         label: String(isoWeek(w.week).week),
@@ -180,7 +184,7 @@ export function render(root, { id }) {
         value: w.sets,
         hl: i === ws.length - 1,
       })),
-      band: TARGET,
+      band: [T.from, T.to],
       height: 180,
       yFormat: (v) => fmtNum(v, 0),
       valueFormat: (v) => fmtNum(v, 1),
