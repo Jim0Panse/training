@@ -3,6 +3,7 @@
 
 import * as db from '../db.js';
 import { bodyMapHTML, applyClasses, legendSelect } from '../components/body-map.js';
+import { openMusclePicker } from '../components/muscle-picker.js';
 import { MUSCLES, MUSCLE, MUSCLE_GROUPS } from '../data/muscles.js';
 import { CATEGORIES, EQUIPMENT, TRACKING, DEFAULT_INCREMENT, suggestTracking } from '../data/exercises.js';
 import { confirmSheet } from '../components/sheet.js';
@@ -49,6 +50,7 @@ export function render(root, params) {
     else if (s === 'pri') d.secondary.push(m);
     const now = state(m);
     lastTap = `${MUSCLE[m].name}: ${now === 'pri' ? 'Hauptmuskel' : now === 'sec' ? 'Nebenmuskel' : 'entfernt'}`;
+    return lastTap;
   };
   const errors = () => ({
     name: !d.name.trim() ? 'Bitte gib einen Namen ein.' : '',
@@ -82,12 +84,13 @@ export function render(root, params) {
         <section class="card muscle-pick ${err.muscles ? 'invalid' : ''}">
           <div class="row-flex">
             <div class="grow"><div class="card-title">Muskeln</div><div class="card-sub">1× tippen Haupt · 2× Neben · 3× entfernen</div></div>
+            <button type="button" class="btn btn-secondary btn-sm mp-open" data-bigpick>${icon('expand')}Vollbild</button>
           </div>
           <div class="seg sm mt-12" role="tablist" aria-label="Ansicht">
             <button type="button" data-view="front" class="${figView === 'front' ? 'on' : ''}">Vorne</button>
             <button type="button" data-view="back" class="${figView === 'back' ? 'on' : ''}">Hinten</button>
           </div>
-          <div class="edit-fig mt-12">${bodyMapHTML({ classes: classes(), cls: 'tappable single', views: [figView], labels: false })}</div>
+          <div class="edit-fig mt-12">${bodyMapHTML({ classes: classes(), cls: 'tappable single', views: [figView], labels: false, hit: true })}</div>
           <p class="tap-status" aria-live="polite">${esc(lastTap)}</p>
           ${legendSelect()}
           <div class="chips m-chips mt-12">${muscleChips()}</div>
@@ -177,6 +180,10 @@ export function render(root, params) {
   draw();
   const offs = [
     on(root, 'click', '[data-view]', (e, b) => { readInputs(); figView = b.dataset.view; draw(); }),
+    on(root, 'click', '[data-bigpick]', async () => {
+      await openMusclePicker({ state, cycle, view: figView });
+      refreshMuscles();
+    }),
     on(root, 'click', '.edit-fig [data-muscle]', (e, g) => { cycle(g.dataset.muscle); refreshMuscles(); }),
     on(root, 'click', '[data-mchip]', (e, b) => { cycle(b.dataset.mchip); refreshMuscles(); }),
     on(root, 'click', '[data-cat]', (e, b) => {

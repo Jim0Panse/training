@@ -1,6 +1,6 @@
 // Service Worker: haelt die komplette App offline verfuegbar (Cache zuerst).
 // WICHTIG: Bei jeder Aenderung an App-Dateien CACHE_VERSION erhoehen!
-const CACHE_VERSION = 'training-v2';
+const CACHE_VERSION = 'training-v3';
 
 const FILES = [
   './',
@@ -38,6 +38,7 @@ const FILES = [
   'js/components/body-card.js',
   'js/components/chart.js',
   'js/components/exercise-picker.js',
+  'js/components/muscle-picker.js',
   'js/components/stopwatch.js',
   'js/components/bodyweight-sheet.js',
   'js/views/home.js',

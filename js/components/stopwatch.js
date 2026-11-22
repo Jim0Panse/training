@@ -1,5 +1,6 @@
 // Pausen-Stoppuhr (kein Countdown): zaehlt hoch, alle N Sekunden ein kurzer Ton,
-// jede volle Minute eine kurze visuelle Hervorhebung. Startzeit liegt in der Session.
+// ein Rahmen baut sich jede Minute einmal um den Knopf auf, volle Minute = kurzes Pulsieren.
+// Startzeit liegt in der Session.
 
 import * as db from '../db.js';
 import { fmtStopwatch } from '../lib/format.js';
@@ -57,20 +58,66 @@ export function beep() {
  */
 export function stopwatchBar(host, { session, save }) {
   let timer = null, lastN = 0, lastMin = 0;
+  let per = 0, lastFrac = -1; // Umfang des Minutenrahmens, zuletzt gezeigter Anteil
   const interval = () => Number(db.state.settings.stopwatchIntervalSec) || 0;
   const elapsed = () => (session.stopwatch && session.stopwatch.startedAt ? Math.max(0, Date.now() - new Date(session.stopwatch.startedAt)) : null);
 
   function render() {
     const e = elapsed();
     host.innerHTML = e == null
-      ? `<button class="sw-bar" type="button" data-sw>${icon('timer')}<span class="grow">Pause starten</span><span class="sw-hint">${interval() ? `Ton alle ${interval()} s` : 'ohne Ton'}</span></button>`
-      : `<button class="sw-bar on" type="button" data-sw aria-label="Pausen-Stoppuhr stoppen">${icon('timer')}<span class="sw-label">Pause</span><span class="sw-time">${fmtStopwatch(e)}</span><span class="sw-hint">Tippen = Stopp</span></button>`;
+      ? `<button class="sw-bar" type="button" data-sw>${icon('timer')}<span class="sw-title grow">Pause starten</span><span class="sw-hint">${interval() ? `Ton alle ${interval()} s` : 'ohne Ton'}</span></button>`
+      : `<button class="sw-bar on" type="button" data-sw aria-label="Pausen-Stoppuhr stoppen">
+          <svg class="sw-frame" aria-hidden="true"><path class="sw-track"/><path class="sw-prog"/></svg>
+          ${icon('timer')}<span class="sw-label">Pause</span><span class="sw-time">${fmtStopwatch(e)}</span><span class="sw-stop">Stopp</span></button>`;
+    per = 0;
+    if (e != null) layoutFrame();
   }
+
+  // Rahmen, der sich jede Minute einmal um den Knopf aufbaut (Start oben in der Mitte, im Uhrzeigersinn)
+  function layoutFrame() {
+    const b = host.querySelector('.sw-bar.on');
+    const svg = b && b.querySelector('.sw-frame');
+    if (!svg) return;
+    const w = b.offsetWidth, h = b.offsetHeight;
+    if (!w || !h) return;
+    const i = 1.5; // halbe Strichstaerke: Rahmen liegt genau auf der Kante
+    const R = parseFloat(getComputedStyle(b).borderTopLeftRadius) || 18;
+    const r = Math.max(0, Math.min(R - i, (h - 2 * i) / 2));
+    const x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+    const d = `M${w / 2} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}`
+      + `H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}Z`;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.querySelectorAll('path').forEach((p) => p.setAttribute('d', d));
+    per = 2 * (w - 2 * i - 2 * r) + 2 * (h - 2 * i - 2 * r) + 2 * Math.PI * r;
+    svg.querySelector('.sw-prog').style.strokeDasharray = `${per} ${per}`;
+    lastFrac = -1;
+    progress();
+  }
+  function progress() {
+    const e = elapsed();
+    const p = host.querySelector('.sw-prog');
+    if (e == null || !p || !per) return;
+    const frac = (e % 60000) / 60000;
+    if (frac < lastFrac || lastFrac < 0) {
+      // Neue Minute (oder erstes Zeichnen): ohne Uebergang zuruecksetzen
+      p.style.transition = 'none';
+      p.style.strokeDashoffset = String(per * (1 - frac));
+      p.getBoundingClientRect();
+      p.style.transition = '';
+    } else {
+      p.style.strokeDashoffset = String(per * (1 - frac));
+    }
+    lastFrac = frac;
+  }
+  const onResize = () => { if (elapsed() != null) layoutFrame(); };
+  window.addEventListener('resize', onResize);
+
   function tick() {
     const e = elapsed();
     if (e == null) return;
     const t = host.querySelector('.sw-time');
     if (t) t.textContent = fmtStopwatch(e);
+    progress();
     const iv = interval();
     if (iv > 0) {
       const n = Math.floor(e / 1000 / iv);
@@ -111,6 +158,6 @@ export function stopwatchBar(host, { session, save }) {
   return {
     restart() { unlockAudio(); start(); },
     running: () => elapsed() != null,
-    destroy() { clearInterval(timer); host.removeEventListener('click', onClick); },
+    destroy() { clearInterval(timer); host.removeEventListener('click', onClick); window.removeEventListener('resize', onResize); },
   };
 }

@@ -16,7 +16,7 @@ export function applyTheme(p) {
     requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-switching')));
   }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#0B0B0C' : '#F2F2F4');
+  if (meta) meta.setAttribute('content', dark ? '#090B0E' : '#F2F4F7');
 }
 
 export function watchSystemTheme() {

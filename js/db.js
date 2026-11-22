@@ -4,6 +4,7 @@
 
 import { EXERCISES } from './data/exercises.js';
 import { TEMPLATES } from './data/templates.js';
+import { upgradeExerciseMuscles } from './data/muscles.js';
 
 const DB_NAME = 'training';
 const DB_VERSION = 1;
@@ -105,6 +106,7 @@ export async function init() {
   }
   state.settings = { ...DEFAULT_SETTINGS, ...settings };
   await loadAll();
+  await upgradeData();
   if (firstRun && navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
   }
@@ -119,6 +121,18 @@ async function loadAll() {
   reindex();
   state.templates = tp.sort(byOrder);
   state.sessions = se.sort(byStart);
+}
+
+/** Aeltere Datenstaende angleichen (z. B. „Bauch“ -> obere/untere Bauchmuskeln). Laeuft bei jedem Start, aendert nur Veraltetes. */
+async function upgradeData() {
+  const changed = state.exercises.map(upgradeExerciseMuscles).filter(Boolean);
+  if (!changed.length) return;
+  const tx = idb.transaction('exercises', 'readwrite');
+  changed.forEach((ex) => tx.objectStore('exercises').put(ex));
+  await done(tx);
+  const byId = new Map(changed.map((ex) => [ex.id, ex]));
+  state.exercises = state.exercises.map((ex) => byId.get(ex.id) || ex);
+  reindex();
 }
 
 const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name, 'de');
@@ -226,6 +240,7 @@ export async function replaceAll(dump) {
   await done(tx);
   state.settings = { ...DEFAULT_SETTINGS, ...(dump.settings || {}) };
   await loadAll();
+  await upgradeData(); // aeltere Backups
   emit('all');
 }
 

@@ -53,7 +53,7 @@ export function render(root, params, { isBack } = {}) {
           <button class="icon-btn" data-week="1" ${isCurrent ? 'disabled' : ''} aria-label="Nächste Woche">${icon('chevronRight')}</button>
         </div>` : '<div class="mt-12"></div>'}
       <div class="card body-big">
-        ${bodyMapHTML({ classes, cls: 'tappable' })}
+        ${bodyMapHTML({ classes, cls: 'tappable', hit: true })}
         <div class="mt-12">${mode === 'week' ? legendWeek() : legendRecovery()}</div>
       </div>
       ${mode === 'recovery' ? `<div class="info-note mt-12">${icon('info')}<span>Richtwert auf Basis von Trainingsvolumen und typischer Erholungszeit der Muskelgruppe – dein Körpergefühl geht vor.</span></div>` : ''}

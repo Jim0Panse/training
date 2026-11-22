@@ -64,10 +64,15 @@ const FRONT = [
   { id: 'schulter_seite', d: [DELT_SIDE] },
   { id: 'bizeps', d: ['M143.8,124.8 C147,121.2 152.2,122.4 154.6,128 C156.3,137.4 156.5,148.2 155,157.4 C152.4,161.8 148.3,162.2 146,158.8 C143.5,148.4 142.8,135.6 143.8,124.8 Z'] },
   { id: 'unterarme', d: [FOREARM] },
+  // Gerader Bauchmuskel: oben die ersten zwei Reihen, unten die dritte Reihe und der Teil unter dem Nabel
   {
-    id: 'bauch', d: [
+    id: 'bauch_oben', d: [
       'M101.8,127 C105.5,125.4 109.8,125.6 112.6,127.4 C113.2,132.2 113.3,137.2 113,141.8 C109.4,143 105.5,143.3 101.8,143 Z',
       'M101.8,146.4 C105.4,146.6 109.3,146.3 113,145.3 C113.5,150.6 113.6,155.8 113.3,161 C109.6,162 105.6,162.3 101.8,162.1 Z',
+    ],
+  },
+  {
+    id: 'bauch_unten', d: [
       'M101.8,165.4 C105.6,165.6 109.5,165.3 113.2,164.4 C113.6,170 113.4,175.6 112.8,181 C109.3,181.8 105.5,182.1 101.8,182 Z',
       'M101.8,188.6 C105.5,188.6 109.2,188.2 112.6,187.4 C112.6,197 110.2,206 103.8,213.6 C103,214.2 102.2,213.8 101.8,212.8 Z',
     ],
@@ -130,19 +135,46 @@ const VIEWS = {
   back: { muscles: prepare(BACK), seps: BACK_SEPS.flatMap((p) => [p, mirrorD(p)]), label: 'Hinten' },
 };
 
-/** Ein SVG fuer eine Ansicht. classes: { muscleId: 'l1' | 'tired' | 'pri' … } */
-export function figureSVG(view, classes = {}) {
+// Verlaeufe fuer die Plastik (einmal pro Dokument, Farben kommen aus dem CSS):
+// Haut hell in der Brustmitte, dunkler nach aussen; jeder Muskel als Woelbung mit Glanz oben
+// und Schatten am Rand; weicher Bodenschatten unter den Fuessen.
+let defsReady = false;
+function ensureDefs() {
+  if (defsReady || typeof document === 'undefined' || !document.body) return;
+  defsReady = true;
+  document.body.insertAdjacentHTML('beforeend', `<svg class="body-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
+    <radialGradient id="bf-skin" cx=".5" cy=".28" r=".8"><stop offset="0" class="bf-skin-hi"/><stop offset="1" class="bf-skin-lo"/></radialGradient>
+    <radialGradient id="bf-dome" cx=".5" cy=".42" r=".66" fx=".5" fy=".18">
+      <stop offset="0" stop-color="#fff" class="bf-dome-hi"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".8" stop-color="#000" class="bf-dome-mid"/>
+      <stop offset="1" stop-color="#000" class="bf-dome-lo"/>
+    </radialGradient>
+    <radialGradient id="bf-floor"><stop offset="0" stop-color="#000" class="bf-floor-c"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  </defs></svg>`);
+}
+
+/**
+ * Ein SVG fuer eine Ansicht. classes: { muscleId: 'l1' | 'tired' | 'pri' … }
+ * hit: unsichtbar vergroesserte Tippflaechen (liegen unter den Muskeln, schlucken also nur Tipps daneben).
+ */
+export function figureSVG(view, classes = {}, { hit = false } = {}) {
+  ensureDefs();
   const v = VIEWS[view];
+  const paths = (m, cls = '') => m.paths.map((p) => `<path${cls ? ` class="${cls}"` : ''} d="${p}"/>`).join('');
   return `<svg class="body-fig" viewBox="26 6 148 426" role="img" aria-label="Körper ${v.label.toLowerCase()}">
+    <ellipse class="floor" cx="100" cy="428.6" rx="38" ry="3.4"/>
     <path class="silhouette" d="${OUTLINE}"/>
-    ${v.muscles.map((m) => `<g class="m ${classes[m.id] || ''}" data-muscle="${m.id}"><title>${esc(MUSCLE[m.id].name)}</title>${m.paths.map((p) => `<path d="${p}"/>`).join('')}</g>`).join('')}
+    ${hit ? `<g class="hits">${v.muscles.map((m) => `<g class="hit" data-muscle="${m.id}">${paths(m)}</g>`).join('')}</g>` : ''}
+    ${v.muscles.map((m) => `<g class="m ${classes[m.id] || ''}" data-muscle="${m.id}"><title>${esc(MUSCLE[m.id].name)}</title>${paths(m)}${paths(m, 'sh')}</g>`).join('')}
     <g class="seps">${v.seps.map((p) => `<path d="${p}"/>`).join('')}</g>
+    <path class="rim" d="${OUTLINE}"/>
   </svg>`;
 }
 
 /** Vorder- und Rueckansicht nebeneinander. */
-export function bodyMapHTML({ classes = {}, labels = true, cls = '', views = ['front', 'back'] } = {}) {
-  return `<div class="body-map ${cls}">${views.map((v) => `<figure>${figureSVG(v, classes)}${labels ? `<figcaption>${VIEWS[v].label}</figcaption>` : ''}</figure>`).join('')}</div>`;
+export function bodyMapHTML({ classes = {}, labels = true, cls = '', views = ['front', 'back'], hit = false } = {}) {
+  return `<div class="body-map ${cls}">${views.map((v) => `<figure>${figureSVG(v, classes, { hit })}${labels ? `<figcaption>${VIEWS[v].label}</figcaption>` : ''}</figure>`).join('')}</div>`;
 }
 
 /** Faerbt eine bestehende Figur neu, ohne sie neu aufzubauen. */

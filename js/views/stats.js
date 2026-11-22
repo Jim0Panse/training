@@ -242,7 +242,7 @@ function bodyHTML(p, r, now, mode) {
       <div class="grow"><div class="card-title">Muskeln</div><div class="card-sub">${esc(sub)}</div></div>
       <div class="seg sm" role="tablist" aria-label="Ansicht">${btn('week', 'Sätze')}${btn('recovery', 'Erholung')}</div>
     </div>
-    ${bodyMapHTML({ classes, cls: 'tappable' })}
+    ${bodyMapHTML({ classes, cls: 'tappable', hit: true })}
     <div class="mt-12">${mode === 'week' ? legendWeek() : legendRecovery()}</div>
     <p class="st-hint">Muskel antippen für Details</p>`;
 }
