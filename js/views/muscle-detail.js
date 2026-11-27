@@ -62,7 +62,7 @@ export function render(root, { id }) {
     if (line) { line.destroy(); line = null; }
     const now = new Date();
     const week = weekSets(now, STRENGTH)[id] || 0;
-    const plyoWeek = Math.max(0, (weekSets(now)[id] || 0) - week);
+    const plyoWeek = Math.max(0, (weekSets(now, { plyo: true })[id] || 0) - week);
     const rec = recovery(now)[id];
 
     // Uebungen fuer diesen Muskel

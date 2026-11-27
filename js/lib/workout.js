@@ -6,16 +6,23 @@ import { navigate } from '../router.js';
 
 export const newSet = (type = 'work') => ({ type, kg: null, reps: null, seconds: null, km: null, done: false, doneAt: null });
 
-/** Uebung in einer Session; t = Vorlagen-Eintrag (Saetze, Wdh.-Bereich, Notiz, Startgewicht) */
-export function sessionItem(exerciseId, t = {}, setCount = null) {
+/** Kraftuebungen mit Gewicht starten im Workout mit einem Aufwaermsatz (Vorschlag: halbes Arbeitsgewicht) */
+export const presetWarmup = (ex) => !!ex && ex.category === 'kraft' && ex.tracking === 'gewicht_wdh';
+
+/**
+ * Uebung in einer Session; t = Vorlagen-Eintrag (Saetze, Wdh.-Bereich, Notiz, Startgewicht).
+ * warmup: true -> bei Kraftuebungen mit Gewicht steht ein Aufwaermsatz vor den Arbeitssaetzen.
+ */
+export function sessionItem(exerciseId, t = {}, setCount = null, { warmup = false } = {}) {
   const n = Math.max(1, Math.min(20, setCount ?? t.sets ?? 3));
+  const warm = warmup && presetWarmup(db.exercise(exerciseId));
   return {
     id: uid(),
     exerciseId,
     supersetGroup: t.supersetGroup ?? null,
     note: t.note || '',
     target: { sets: t.sets ?? null, repsMin: t.repsMin ?? null, repsMax: t.repsMax ?? null, startKg: t.startKg ?? null },
-    sets: Array.from({ length: n }, () => newSet()),
+    sets: [...(warm ? [newSet('warmup')] : []), ...Array.from({ length: n }, () => newSet())],
   };
 }
 
@@ -29,7 +36,7 @@ export function newSession(template = null) {
     endedAt: null,
     note: '',
     templateNote: template ? template.note || '' : '',
-    items: template ? template.items.filter((it) => db.exercise(it.exerciseId)).map((it) => sessionItem(it.exerciseId, it)) : [],
+    items: template ? template.items.filter((it) => db.exercise(it.exerciseId)).map((it) => sessionItem(it.exerciseId, it, null, { warmup: true })) : [],
     stopwatch: { startedAt: null },
   };
 }

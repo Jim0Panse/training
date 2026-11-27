@@ -1,5 +1,8 @@
-// Laufendes Workout (wichtigster Screen): Satz-Tabelle mit Vorwerten als Platzhalter, „Letztes Mal“,
-// Steigerungshinweis, Satzarten, Supersaetze (abwechselnd), Notizen, Pausen-Stoppuhr, Wake Lock.
+// Laufendes Workout (wichtigster Screen): Satz-Tabelle mit Vorwerten als Platzhalter (Gewicht vom letzten Mal,
+// Wiederholungen aus dem Ziel), „Letztes Mal“, Steigerungshinweis, Aufwaermsaetze (bei Kraftuebungen mit Gewicht
+// voreingestellt, Vorschlag halbes Arbeitsgewicht), Supersaetze (abwechselnd), Notizen, Pausen-Stoppuhr, Wake Lock.
+// Satznummer antippen: Satzart wechseln oder Satz loeschen (alternativ nach links wischen).
+// Eigener Scrollbereich, damit die Stoppuhr auf iOS fest unten bleibt.
 // Jede Eingabe wird entprellt (300 ms) gespeichert, zusaetzlich beim Verlassen/Sperren.
 
 import * as db from '../db.js';
@@ -7,7 +10,7 @@ import { openSheet, confirmSheet, actionSheet } from '../components/sheet.js';
 import { pickExercises } from '../components/exercise-picker.js';
 import { stopwatchBar, unlockAudio } from '../components/stopwatch.js';
 import { lastPerformance, progressionHint, sessionRecords, setLabel } from '../lib/stats.js';
-import { sessionItem, newSet, groupInfo, normalizeGroups, moveItem } from '../lib/workout.js';
+import { sessionItem, newSet, groupInfo, normalizeGroups, moveItem, presetWarmup } from '../lib/workout.js';
 import { fmtClock, fmtKg, parseNum, numToInput } from '../lib/format.js';
 import { on, esc, debounce, toast } from '../lib/dom.js';
 import { swipeRows } from '../lib/swipe.js';
@@ -48,10 +51,12 @@ function targetText(t, ex) {
   return `${t.sets} ${t.sets === 1 ? 'Satz' : 'Sätze'}`;
 }
 
-/** Platzhalter: letztes Mal (gleicher Index derselben Satzart) -> vorheriger Satz heute -> letzter Satz letztes Mal -> Plan */
-function placeholderFor(item, idx, last) {
-  const set = item.sets[idx];
-  const warm = isWarm(set);
+const REP_BASED = ['gewicht_wdh', 'zusatzgewicht_wdh', 'wdh'];
+const WARM_CATS = ['kraft', 'plyometrie'];
+
+/** Vorwert: letztes Mal (gleicher Index derselben Satzart) -> vorheriger Satz heute -> letzter Satz letztes Mal -> Plan */
+function previousValues(item, idx, last) {
+  const warm = isWarm(item.sets[idx]);
   const k = item.sets.slice(0, idx).filter((x) => isWarm(x) === warm).length;
   const arr = last ? (warm ? last.warmup : last.work) : [];
   if (arr[k]) return arr[k];
@@ -60,9 +65,49 @@ function placeholderFor(item, idx, last) {
     if (isWarm(p) === warm && hasValue(p)) return p;
   }
   if (!warm && last && last.work.length) return last.work[last.work.length - 1];
-  if (!warm) return { kg: item.target?.startKg ?? null, reps: item.target?.repsMax ?? null, seconds: null, km: null };
+  if (!warm) return { kg: item.target?.startKg ?? null, reps: null, seconds: null, km: null };
   return null;
 }
+
+/** Ziel-Wiederholungen aus der Vorlage: obere Grenze des Bereichs (dort setzt auch der Steigerungshinweis an) */
+function targetReps(item) {
+  const ex = db.exercise(item.exerciseId);
+  const t = item.target || {};
+  if (!ex || !REP_BASED.includes(ex.tracking)) return null;
+  return t.repsMax ?? t.repsMin ?? null;
+}
+
+/**
+ * Aufwaermsatz: halbes Arbeitsgewicht (abgerundet auf den Steigerungsschritt) × 10 Wdh.
+ * Bezug ist der erste Arbeitssatz – eingetragenes Gewicht, sonst sein Vorschlag (letztes Mal / Plan).
+ */
+function warmSuggestion(item, last) {
+  const ex = db.exercise(item.exerciseId);
+  if (!ex || ex.tracking !== 'gewicht_wdh') return null;
+  const w = item.sets.findIndex((x) => !isWarm(x));
+  const ref = w >= 0
+    ? (item.sets[w].kg ?? previousValues(item, w, last)?.kg)
+    : (last && last.work[0] ? last.work[0].kg : item.target?.startKg);
+  if (!(ref > 0)) return null;
+  const step = ex.incrementKg || 2.5;
+  const kg = Math.max(step, Math.floor((ref * 0.5) / step + 1e-9) * step);
+  return { kg: Math.round(kg * 100) / 100, reps: 10, seconds: null, km: null };
+}
+
+/**
+ * Platzhalter je Satz. Gewicht passt sich an (letztes Mal / vorheriger Satz), Wiederholungen der
+ * Arbeitssaetze zeigen immer das Ziel aus der Vorlage, Aufwaermsaetze das halbe Arbeitsgewicht.
+ */
+function placeholderFor(item, idx, last) {
+  if (isWarm(item.sets[idx])) return warmSuggestion(item, last) || previousValues(item, idx, last);
+  const prev = previousValues(item, idx, last);
+  const reps = targetReps(item);
+  if (reps == null) return prev;
+  return { ...(prev || { kg: null, seconds: null, km: null }), reps };
+}
+
+// Scrollposition je Workout (eigener Scrollbereich, s. u.)
+const scrollMemory = new Map();
 
 let wakeLock = null;
 async function requestWakeLock() {
@@ -75,9 +120,8 @@ async function requestWakeLock() {
 }
 function releaseWakeLock() { try { if (wakeLock) wakeLock.release(); } catch (e) { /* egal */ } wakeLock = null; }
 
-export function render(root) {
+export function render(root, params, { isBack = false } = {}) {
   const s = db.activeSession();
-  root.classList.add('wk-view');
   if (!s) {
     root.classList.add('has-topbar');
     root.innerHTML = `<header class="topbar"><button class="icon-btn" data-back="#/start" aria-label="Zurück">${icon('chevronLeft')}</button><h1 class="topbar-title">Workout</h1><span></span></header>
@@ -85,6 +129,7 @@ export function render(root) {
         <a class="btn mt-16" href="#/workout-auswahl">${icon('play')}Workout starten</a></div>`;
     return;
   }
+  root.classList.add('wk-view');
 
   let finished = false;
   let sw = null;
@@ -137,7 +182,7 @@ export function render(root) {
     return `<div class="set-row ${set.done ? 'done' : ''} ${warm ? 'warm' : ''} ${ctx.prs.has(set) ? 'pr' : ''}" data-item="${item.id}" data-idx="${idx}">
       <button class="set-del" type="button" data-del tabindex="-1">${icon('trash')}Löschen</button>
       <div class="set-main">
-        <button class="set-no" type="button" data-type aria-label="Satzart wechseln (Arbeitssatz/Aufwärmsatz)">${badge ? `<small>${badge}</small>` : ''}${no}</button>
+        <button class="set-no" type="button" data-type aria-label="Satz-Optionen: Satzart wechseln oder löschen">${badge ? `<small>${badge}</small>` : ''}${no}</button>
         ${cols.map(cell).join('')}
         <button class="set-check" type="button" data-check aria-label="Satz abhaken">${icon('check')}<span class="pr-badge" title="Rekord">${icon('trophy')}</span></button>
       </div>
@@ -168,6 +213,16 @@ export function render(root) {
     </div>`;
   }
 
+  // Unter jeder Uebung: Aufwaermsatz (wird vor den Arbeitssaetzen eingefuegt) und Arbeitssatz
+  function addRowHTML(items) {
+    const ids = items.map((it) => it.id).join(',');
+    const warm = items.some((it) => WARM_CATS.includes(exOf(it).category));
+    return `<div class="add-row">
+      ${warm ? `<button class="add-set add-warm" type="button" data-add-warm="${ids}">${icon('plus')}Aufwärmsatz</button>` : ''}
+      <button class="add-set" type="button" data-add-set="${ids}">${icon('plus')}${items.length > 1 ? 'Satz für alle' : 'Satz'}</button>
+    </div>`;
+  }
+
   function blockHTML(block) {
     if (block.length === 1) {
       const item = block[0], ex = exOf(item);
@@ -175,7 +230,7 @@ export function render(root) {
         ${exHead(item, ex, '')}
         ${item.sets.length ? setHeader(ex.tracking) : ''}
         <div class="sets">${item.sets.map((x, i) => rowHTML(item, i, ex, '')).join('')}</div>
-        <button class="add-set" type="button" data-add-set="${item.id}">${icon('plus')}Satz</button>
+        ${addRowHTML(block)}
       </section>`;
     }
     const letter = block[0].supersetGroup;
@@ -189,7 +244,7 @@ export function render(root) {
       ${block.map((it, k) => exHead(it, exOf(it), `${letter}${k + 1}`)).join('<div class="ss-sep"></div>')}
       ${same && rows.length ? setHeader(tr) : ''}
       <div class="sets">${rows.join('')}</div>
-      <button class="add-set" type="button" data-add-set="${block.map((it) => it.id).join(',')}">${icon('plus')}Satz für alle</button>
+      ${addRowHTML(block)}
     </section>`;
   }
 
@@ -204,10 +259,15 @@ export function render(root) {
   }
 
   const elapsed = () => fmtClock(Date.now() - new Date(s.startedAt));
+  // Eigener Scrollbereich statt Seiten-Scroll: Auf iOS verrutschen fest positionierte Elemente
+  // (die Stoppuhr unten), wenn die Seite selbst scrollt und die Tastatur auf- und zugeht.
+  const scroller = () => root.querySelector('.wk-scroll');
   function draw() {
     if (sw) { sw.destroy(); sw = null; }
     ctx = buildCtx();
+    const top = scroller() ? scroller().scrollTop : null;
     root.innerHTML = `
+      <div class="wk-scroll"><div class="wk-inner">
       <header class="wk-head">
         <button class="icon-btn" data-back="#/start" aria-label="Zur Startseite – das Workout läuft weiter">${icon('chevronLeft')}</button>
         <div class="wk-title"><div class="wk-name ellipsis">${esc(s.name)}</div><div class="wk-clock" id="wk-clock">${elapsed()}</div></div>
@@ -222,7 +282,9 @@ export function render(root) {
         <span class="field-label">Notiz zum Workout</span>
         <textarea class="input" data-session-note rows="2" placeholder="Wie lief’s? (optional)">${esc(s.note || '')}</textarea>
       </label>
+      </div></div>
       <div class="sw-dock" id="sw-dock"></div>`;
+    if (top != null) scroller().scrollTop = top;
     sw = stopwatchBar(root.querySelector('#sw-dock'), { session: s, save });
   }
 
@@ -281,7 +343,7 @@ export function render(root) {
     const tItem = tpl ? tpl.items.find((x) => x.exerciseId === exerciseId) : null;
     const last = lastPerformance(exerciseId, s.id);
     const count = (tItem && tItem.sets) || (last && last.work.length) || 3;
-    return sessionItem(exerciseId, tItem ? { ...tItem, supersetGroup: null } : {}, count);
+    return sessionItem(exerciseId, tItem ? { ...tItem, supersetGroup: null } : {}, count, { warmup: true });
   }
 
   async function addExercises() {
@@ -304,8 +366,13 @@ export function render(root) {
   }
 
   function doSwap(item, id) {
+    // Satzzahl bleibt; Aufwaermsaetze passend zur neuen Uebung (Kraft mit Gewicht: mindestens einer)
+    const ex = db.exercise(id);
+    const warm = item.sets.filter(isWarm).length;
+    const work = Math.max(1, item.sets.length - warm);
+    const w = presetWarmup(ex) ? Math.max(1, warm) : (ex && WARM_CATS.includes(ex.category) ? warm : 0);
     item.exerciseId = id;
-    item.sets = item.sets.map((x) => newSet(x.type));
+    item.sets = [...Array.from({ length: w }, () => newSet('warmup')), ...Array.from({ length: work }, () => newSet())];
     item.note = '';
     item.target = { ...(item.target || {}), startKg: null };
   }
@@ -328,9 +395,32 @@ export function render(root) {
     draw();
   }
 
+  // Satznummer antippen: Satzart wechseln oder Satz loeschen
+  async function setMenu(item, set) {
+    const warm = isWarm(set);
+    const nr = item.sets.filter((x) => !isWarm(x)).indexOf(set) + 1;
+    const v = await actionSheet({
+      title: `${exOf(item).name} · ${warm ? 'Aufwärmsatz' : `Satz ${nr}`}`,
+      actions: [
+        warm ? { label: 'Zum Arbeitssatz machen', value: 'work', icon: 'swap' } : { label: 'Zum Aufwärmsatz machen', value: 'warmup', icon: 'swap' },
+        { label: 'Satz löschen', value: 'del', icon: 'trash', danger: true },
+      ],
+    });
+    const k = item.sets.indexOf(set);
+    if (!v || k < 0) return;
+    if (v === 'del') item.sets.splice(k, 1);
+    else set.type = v;
+    swiper.forget();
+    save();
+    draw();
+    if (v !== 'del') toast(v === 'warmup' ? 'Aufwärmsatz – zählt nicht für die Statistik' : 'Arbeitssatz');
+  }
+
   async function itemMenu(item) {
     const ex = exOf(item);
     const i = s.items.indexOf(item);
+    const openWarm = item.sets.findIndex((x) => isWarm(x) && !x.done);
+    const warmIdx = openWarm >= 0 ? openWarm : item.sets.findIndex(isWarm);
     const v = await actionSheet({
       title: ex.name,
       actions: [
@@ -338,6 +428,7 @@ export function render(root) {
         ...(i > 0 ? [{ label: 'Nach oben', value: 'up', icon: 'arrowUp' }] : []),
         ...(i < s.items.length - 1 ? [{ label: 'Nach unten', value: 'down', icon: 'arrowDown' }] : []),
         ...(ex.id ? [{ label: 'Verlauf ansehen', value: 'history', icon: 'chart' }] : []),
+        ...(warmIdx >= 0 ? [{ label: 'Aufwärmsatz löschen', value: 'delwarm', icon: 'minus' }] : []),
         ...(item.sets.length ? [{ label: 'Letzten Satz löschen', value: 'delset', icon: 'minus' }] : []),
         { label: 'Übung entfernen', value: 'remove', icon: 'trash', danger: true },
       ],
@@ -345,7 +436,8 @@ export function render(root) {
     if (v === 'swap') return swap(item);
     if (v === 'up' || v === 'down') { moveItem(s.items, i, v === 'up' ? i - 1 : i + 1); save(); draw(); }
     if (v === 'history') { save.flush(); navigate(`#/uebung/${ex.id}`); }
-    if (v === 'delset') { item.sets.pop(); save(); draw(); }
+    if (v === 'delwarm') { item.sets.splice(warmIdx, 1); swiper.forget(); save(); draw(); }
+    if (v === 'delset') { item.sets.pop(); swiper.forget(); save(); draw(); }
     if (v === 'remove') {
       if (item.sets.some((x) => x.done)) {
         const ok = await confirmSheet({ title: 'Übung entfernen?', message: 'Abgehakte Sätze dieser Übung gehen verloren.', confirm: 'Entfernen', danger: true });
@@ -405,7 +497,8 @@ export function render(root) {
       navigate('#/start', { replace: true });
       return;
     }
-    const open = s.items.reduce((n, it) => n + it.sets.filter((x) => !x.done).length, 0);
+    // Offene Aufwaermsaetze fallen still weg – sie zaehlen ohnehin nicht
+    const open = s.items.reduce((n, it) => n + it.sets.filter((x) => !x.done && !isWarm(x)).length, 0);
     const ok = await confirmSheet({
       title: 'Workout beenden?',
       message: open ? `${open} ${open === 1 ? 'offener Satz wird' : 'offene Sätze werden'} verworfen.` : 'Alle Sätze sind abgehakt – stark!',
@@ -436,11 +529,16 @@ export function render(root) {
   const onFocusIn = (e) => { if (e.target.matches('input, textarea')) document.body.classList.add('typing'); };
   const onFocusOut = () => setTimeout(() => {
     const a = document.activeElement;
-    if (!a || !a.matches || !a.matches('input, textarea')) document.body.classList.remove('typing');
+    if (!a || !a.matches || !a.matches('input, textarea')) {
+      document.body.classList.remove('typing');
+      // Tastatur zu: iOS laesst die Seite manchmal verschoben stehen -> zuruecksetzen (die Seite selbst scrollt hier nie)
+      if (window.scrollY) window.scrollTo(0, 0);
+    }
   }, 50);
 
   // ---------- Start ----------
   draw();
+  if (isBack && scrollMemory.has(s.id)) scroller().scrollTop = scrollMemory.get(s.id);
   requestWakeLock();
   const clock = setInterval(() => { const c = root.querySelector('#wk-clock'); if (c) c.textContent = elapsed(); }, 1000);
   const onVis = () => {
@@ -466,19 +564,18 @@ export function render(root) {
       else set[f] = v;
       save();
       if (set.done) refreshPRsSoon();
-      // Platzhalter der folgenden Saetze haengen evtl. von diesem Satz ab
-      if (!ctx.last.get(item.id) || !ctx.last.get(item.id).work.length) {
-        item.sets.forEach((x, j) => {
-          if (j <= idx) return;
-          const ph = placeholderFor(item, j, ctx.last.get(item.id));
-          const r = root.querySelector(`.set-row[data-item="${item.id}"][data-idx="${j}"]`);
-          if (!r) return;
-          r.querySelectorAll('.set-in').forEach((el) => {
-            const t = fieldText(fieldValue(ph, el.dataset.f), el.dataset.f);
-            if (t) el.placeholder = t;
-          });
+      // Platzhalter der anderen Saetze haengen evtl. von diesem Satz ab
+      // (Vorwerte ohne Verlauf; Aufwaermsatz = halbes Gewicht des ersten Arbeitssatzes)
+      item.sets.forEach((x, j) => {
+        if (j === idx) return;
+        const ph = placeholderFor(item, j, ctx.last.get(item.id));
+        const r = root.querySelector(`.set-row[data-item="${item.id}"][data-idx="${j}"]`);
+        if (!r) return;
+        r.querySelectorAll('.set-in').forEach((el) => {
+          const t = fieldText(fieldValue(ph, el.dataset.f), el.dataset.f);
+          if (t) el.placeholder = t;
         });
-      }
+      });
     }),
     on(root, 'change', '.set-in', (e, inp) => {
       const { set } = locate(inp);
@@ -492,14 +589,7 @@ export function render(root) {
       if (i >= 0 && next[i + 1]) next[i + 1].focus(); else inp.blur();
     }),
     on(root, 'click', '[data-check]', (e, b) => { const { item, idx } = locate(b); if (item) check(item, idx); }),
-    on(root, 'click', '[data-type]', (e, b) => {
-      const { item, set } = locate(b);
-      if (!set) return;
-      set.type = isWarm(set) ? 'work' : 'warmup';
-      save();
-      draw();
-      toast(isWarm(set) ? 'Aufwärmsatz – zählt nicht für die Statistik' : 'Arbeitssatz');
-    }),
+    on(root, 'click', '[data-type]', (e, b) => { const { item, set } = locate(b); if (set) setMenu(item, set); }),
     on(root, 'click', '[data-del]', (e, b) => {
       const { item, idx } = locate(b);
       if (!item) return;
@@ -516,6 +606,18 @@ export function render(root) {
       save();
       draw();
     }),
+    on(root, 'click', '[data-add-warm]', (e, b) => {
+      b.dataset.addWarm.split(',').forEach((id) => {
+        const it = itemById(id);
+        if (!it) return;
+        const k = it.sets.findIndex((x) => !isWarm(x)); // vor den ersten Arbeitssatz
+        it.sets.splice(k < 0 ? it.sets.length : k, 0, newSet('warmup'));
+      });
+      swiper.forget();
+      save();
+      draw();
+      toast('Aufwärmsatz – zählt nicht für die Statistik');
+    }),
     on(root, 'click', '[data-prog]', (e, b) => {
       const item = itemById(b.closest('[data-item]').dataset.item);
       const kg = Number(b.dataset.prog);
@@ -531,6 +633,7 @@ export function render(root) {
   ];
 
   return () => {
+    if (scroller()) scrollMemory.set(s.id, scroller().scrollTop);
     offs.forEach((f) => f());
     save.flush();
     offFlush();

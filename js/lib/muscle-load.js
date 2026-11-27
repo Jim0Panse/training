@@ -12,11 +12,11 @@ export const doneWorkSets = (item) => item.sets.filter((s) => s.type !== 'warmup
 
 /**
  * Effektive Saetze pro Muskel in einer Session: Hauptmuskel +1, Nebenmuskel +0,5.
- * plyo: false -> nur Kraftuebungen. So bleiben die Werte mit den Richtwerten aus Studien
- * vergleichbar (die beziehen sich auf Kraftsaetze, nicht auf Spruenge). Fuer die Erholung
- * zaehlen Sprung- und Explosivsaetze dagegen mit.
+ * Standard: nur Kraftuebungen. So bleiben die Werte mit den Richtwerten aus Studien
+ * vergleichbar (die beziehen sich auf Kraftsaetze, nicht auf Spruenge). plyo: true zaehlt
+ * Sprung- und Explosivsaetze mit – das nutzt nur die Erholung, denn ermuedend sind sie trotzdem.
  */
-export function sessionMuscleSets(session, { plyo = true } = {}) {
+export function sessionMuscleSets(session, { plyo = false } = {}) {
   const out = {};
   for (const item of session.items) {
     const ex = db.exercise(item.exerciseId);
@@ -73,7 +73,7 @@ export function recovery(now = new Date()) {
   for (const s of db.state.sessions) {
     const t = sessionTime(s).getTime();
     if (t < since || t > nowT) continue;
-    const m = sessionMuscleSets(s);
+    const m = sessionMuscleSets(s, { plyo: true });
     for (const k in m) (loads[k] = loads[k] || []).push({ load: m[k], t });
   }
   const result = {};

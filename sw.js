@@ -1,6 +1,6 @@
 // Service Worker: haelt die komplette App offline verfuegbar (Cache zuerst).
 // WICHTIG: Bei jeder Aenderung an App-Dateien CACHE_VERSION erhoehen!
-const CACHE_VERSION = 'training-v4';
+const CACHE_VERSION = 'training-v5';
 
 const FILES = [
   './',
